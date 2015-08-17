@@ -12,9 +12,10 @@ requests (cookies, auth, proxies).
 
 import (
 	"bytes"
-	"errors"
-	"encoding/json"
 	"encoding/base64"
+	"encoding/json"
+	"errors"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -22,8 +23,6 @@ import (
 	"strings"
 	"time"
 )
-
-import ()
 
 type Session struct {
 	Client *http.Client
@@ -39,6 +38,7 @@ type Session struct {
 
 // Send constructs and sends an HTTP request.
 func (s *Session) Send(r *Request) (response *Response, err error) {
+	startTime := time.Now()
 	r.Method = strings.ToUpper(r.Method)
 	//
 	// Create a URL object from the raw url string.  This will allow us to compose
@@ -161,7 +161,6 @@ func (s *Session) Send(r *Request) (response *Response, err error) {
 	//
 	// Execute the HTTP request
 	//
-
 	// Debug log request
 	s.log("--------------------------------------------------------------------------------")
 	s.log("REQUEST")
@@ -227,6 +226,9 @@ func (s *Session) Send(r *Request) (response *Response, err error) {
 		s.log("Empty response body")
 	}
 
+	elapsed := time.Since(startTime)
+
+	fmt.Printf("[Neo4J-HTTP] | %s | %d | %.2fms | \n", r.Method, resp.StatusCode, float64(elapsed.Nanoseconds())/1000000.0)
 	return
 }
 
