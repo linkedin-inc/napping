@@ -228,7 +228,7 @@ func (s *Session) Send(r *Request) (response *Response, err error) {
 
 	elapsed := time.Since(startTime)
 
-	fmt.Printf("[Neo4J-HTTP] | %s | %d | %.2fms | \n", r.Method, resp.StatusCode, float64(elapsed.Nanoseconds())/1000000.0)
+	fmt.Printf("[Neo4J-HTTP] | %d | %s | %s | %d | %.2fms | \n", time.Now().UnixNano()/1e6, r.Url, r.Method, resp.StatusCode, float64(elapsed.Nanoseconds())/1000000.0)
 	return
 }
 
