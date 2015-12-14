@@ -22,6 +22,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/golang/protobuf/proto"
 )
 
 type Session struct {
@@ -81,7 +83,7 @@ func (s *Session) Send(r *Request) (response *Response, err error) {
 	//
 	header := http.Header{}
 	if s.Header != nil {
-		for k, _ := range *s.Header {
+		for k := range *s.Header {
 			v := s.Header.Get(k)
 			header.Set(k, v)
 		}
@@ -232,6 +234,163 @@ func (s *Session) Send(r *Request) (response *Response, err error) {
 	return
 }
 
+// Send constructs and sends an HTTP request.
+func (s *Session) send(r *Request) (response *Response, err error) {
+	startTime := time.Now()
+	r.Method = strings.ToUpper(r.Method)
+	u, err := url.Parse(r.Url)
+	if err != nil {
+		s.log("URL", r.Url)
+		s.log(err)
+		return
+	}
+	p := Params{}
+	if s.Params != nil {
+		for k, v := range *s.Params {
+			p[k] = v
+		}
+	}
+	if r.Params != nil {
+		for k, v := range *r.Params {
+			p[k] = v
+		}
+	}
+	vals := u.Query()
+	for k, v := range p {
+		vals.Set(k, v)
+	}
+	u.RawQuery = vals.Encode()
+	header := http.Header{}
+	if s.Header != nil {
+		for k := range *s.Header {
+			v := s.Header.Get(k)
+			header.Set(k, v)
+		}
+	}
+	var req *http.Request
+	var buf *bytes.Buffer
+	if r.Payload != nil {
+		if r.RawPayload {
+			var ok bool
+			buf, ok = r.Payload.(*bytes.Buffer)
+			if !ok {
+				err = errors.New("Payload must be of type *bytes.Buffer if RawPayload is set to true")
+				return
+			}
+		} else {
+			var b []byte
+			b, err = json.Marshal(&r.Payload)
+			if err != nil {
+				s.log(err)
+				return
+			}
+			buf = bytes.NewBuffer(b)
+		}
+		if buf != nil {
+			req, err = http.NewRequest(r.Method, u.String(), buf)
+		} else {
+			req, err = http.NewRequest(r.Method, u.String(), nil)
+		}
+		if err != nil {
+			s.log(err)
+			return
+		}
+		header.Add("Content-Type", "application/json")
+	} else { // no data to encode
+		req, err = http.NewRequest(r.Method, u.String(), nil)
+		if err != nil {
+			s.log(err)
+			return
+		}
+
+	}
+	var userinfo *url.Userinfo
+	if u.User != nil {
+		userinfo = u.User
+	}
+	if s.Userinfo != nil {
+		userinfo = s.Userinfo
+	}
+	// Prefer Request's user credentials
+	if r.Userinfo != nil {
+		userinfo = r.Userinfo
+	}
+	if r.Header != nil {
+		for k, v := range *r.Header {
+			header.Set(k, v[0]) // Is there always guarnateed to be at least one value for a header?
+		}
+	}
+	if header.Get("Accept") == "" {
+		header.Add("Accept", "application/octet-stream")
+	}
+	req.Header = header
+	if userinfo != nil {
+		pwd, _ := userinfo.Password()
+		req.SetBasicAuth(userinfo.Username(), pwd)
+		if u.Scheme != "https" {
+			s.log("WARNING: Using HTTP Basic Auth in cleartext is insecure.")
+		}
+	}
+	s.log("--------------------------------------------------------------------------------")
+	s.log("REQUEST")
+	s.log("--------------------------------------------------------------------------------")
+	s.log(pretty(req))
+	s.log("Payload:")
+	if r.RawPayload && s.Log && buf != nil {
+		s.log(base64.StdEncoding.EncodeToString(buf.Bytes()))
+	} else {
+		s.log(pretty(r.Payload))
+	}
+	r.timestamp = time.Now()
+	var client *http.Client
+	if s.Client != nil {
+		client = s.Client
+	} else {
+		client = &http.Client{}
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		s.log(err)
+		return
+	}
+	defer resp.Body.Close()
+	r.status = resp.StatusCode
+	r.response = resp
+	r.body, err = ioutil.ReadAll(resp.Body)
+	if err != nil {
+		s.log(err)
+		return
+	}
+	if string(r.body) != "" {
+		if resp.StatusCode < 300 && r.Result != nil {
+			proto.Unmarshal(r.body, r.Result.(proto.Message))
+		}
+		//ignore 4xx or 5xx response
+	}
+	rsp := Response(*r)
+	response = &rsp
+	s.log("--------------------------------------------------------------------------------")
+	s.log("RESPONSE")
+	s.log("--------------------------------------------------------------------------------")
+	s.log("Status: ", response.status)
+	s.log("Header:")
+	s.log(pretty(response.HttpResponse().Header))
+	s.log("Body:")
+	if response.body != nil {
+		raw := json.RawMessage{}
+		if json.Unmarshal(response.body, &raw) == nil {
+			s.log(pretty(&raw))
+		} else {
+			s.log(pretty(response.RawText()))
+		}
+	} else {
+		s.log("Empty response body")
+	}
+	elapsed := time.Since(startTime)
+	fmt.Printf("[Neo4J-HTTP] | %d | %s | %s | %d | %.2fms | \n", time.Now().UnixNano()/1e6, r.Url, r.Method, resp.StatusCode, float64(elapsed.Nanoseconds())/1000000.0)
+	return
+}
+
 // Get sends a GET request.
 func (s *Session) Get(url string, p *Params, result, errMsg interface{}) (*Response, error) {
 	r := Request{
@@ -242,6 +401,18 @@ func (s *Session) Get(url string, p *Params, result, errMsg interface{}) (*Respo
 		Error:  errMsg,
 	}
 	return s.Send(&r)
+}
+
+// Get sends a GET request.
+func (s *Session) GetPB(url string, p *Params, result, errMsg interface{}) (*Response, error) {
+	r := Request{
+		Method: "GET",
+		Url:    url,
+		Params: p,
+		Result: result,
+		Error:  errMsg,
+	}
+	return s.send(&r)
 }
 
 // Options sends an OPTIONS request.
