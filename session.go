@@ -449,6 +449,18 @@ func (s *Session) Post(url string, payload, result, errMsg interface{}) (*Respon
 	return s.Send(&r)
 }
 
+// Post sends a POST request.
+func (s *Session) PostPB(url string, payload, result, errMsg interface{}) (*Response, error) {
+	r := Request{
+		Method:  "POST",
+		Url:     url,
+		Payload: payload,
+		Result:  result,
+		Error:   errMsg,
+	}
+	return s.send(&r)
+}
+
 // Put sends a PUT request.
 func (s *Session) Put(url string, payload, result, errMsg interface{}) (*Response, error) {
 	r := Request{
