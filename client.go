@@ -7,8 +7,8 @@ import (
 )
 
 const (
-	DefaultConnTimeout = 200 * time.Millisecond
-	DefaultReqTimeout  = 1000 * time.Millisecond
+	DefaultConnTimeout = 500 * time.Millisecond
+	DefaultReqTimeout  = 5000 * time.Millisecond
 )
 
 func newDialerSupportTimeout(connTimeout time.Duration, reqTimeout time.Duration) func(network, address string) (net.Conn, error) {
