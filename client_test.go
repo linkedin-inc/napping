@@ -3,7 +3,6 @@ package napping
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"sync"
@@ -15,8 +14,6 @@ var starter sync.Once
 var addr net.Addr
 
 func testHandler(w http.ResponseWriter, req *http.Request) {
-	//make 500ms latency
-	time.Sleep(500 * time.Millisecond)
 	io.WriteString(w, "hello, world!\n")
 }
 
@@ -29,10 +26,11 @@ func testDelayedHandler(w http.ResponseWriter, req *http.Request) {
 func setupMockServer(t *testing.T) {
 	http.HandleFunc("/normal", testHandler)
 	http.HandleFunc("/timeout", testDelayedHandler)
-	ln, err := net.Listen("tcp", ":0")
+	ln, err := net.Listen("tcp", ":8080")
 	if err != nil {
 		t.Fatalf("failed to listen - %s", err.Error())
 	}
+	fmt.Sprintf("listened at - %s", ln.Addr())
 	go func() {
 		err = http.Serve(ln, nil)
 		if err != nil {
@@ -44,23 +42,30 @@ func setupMockServer(t *testing.T) {
 
 func TestNewClientSupportTimeout(t *testing.T) {
 	starter.Do(func() { setupMockServer(t) })
-	//set 200ms connection timeout and 1000ms request timeout
-	httpClient := NewClientSupportTimeout(200*time.Millisecond, 1000*time.Millisecond)
+	fmt.Println("listen at - ", addr.String())
+	httpClient := NewClientSupportTimeout(500 * time.Millisecond)
 	req, _ := http.NewRequest("GET", "http://"+addr.String()+"/normal", nil)
 	resp, err := httpClient.Do(req)
+	defer resp.Body.Close()
 	if err != nil {
-		fmt.Println(err)
 		t.Fatalf("1st request should be successful")
 	}
-	defer resp.Body.Close()
-	data, _ := ioutil.ReadAll(resp.Body)
-	fmt.Println(string(data))
-
-	req, _ = http.NewRequest("GET", "http://"+addr.String()+"/timeout", nil)
-	resp, err = httpClient.Do(req)
-	if err != nil {
-		fmt.Println("is err expected?", err.Error())
-	} else if err == nil {
-		t.Fatalf("request should be timed out")
+	var channel chan int
+	for i := 0; i < 100; i++ {
+		go func() {
+			for j := 0; j < 100; j++ {
+				req, _ = http.NewRequest("GET", "http://"+addr.String()+"/timeout", nil)
+				begin := time.Now()
+				resp, err = httpClient.Do(req)
+				end := time.Now()
+				if err != nil {
+					fmt.Println("is err expected?", err.Error(), "cost:", end.Sub(begin).Nanoseconds())
+					channel <- i
+				} else if err == nil {
+					t.Fatalf("request should be timed out")
+				}
+			}
+		}()
 	}
+	<-channel
 }
