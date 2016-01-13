@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	DefaultConnTimeout = 500 * time.Millisecond
+	DefaultConnTimeout = 1000 * time.Millisecond
 	DefaultReqTimeout  = 5000 * time.Millisecond
 )
 
@@ -30,17 +30,25 @@ func newTransportSupportTimeout(connTimeout time.Duration, reqTimeout time.Durat
 
 //NewClientSupportTimeout return a http client support timeout, which you can specify connection timeout and request timeout.
 func NewClientSupportTimeout(args ...interface{}) *http.Client {
-	connTimeout := DefaultConnTimeout
-	reqTimeout := DefaultReqTimeout
+	//connTimeout := DefaultConnTimeout
+	//reqTimeout := DefaultReqTimeout
+	//if len(args) == 1 {
+	//	connTimeout = args[0].(time.Duration)
+	//}
+	//if len(args) == 2 {
+	//	connTimeout = args[0].(time.Duration)
+	//	reqTimeout = args[1].(time.Duration)
+	//}
+	//return &http.Client{
+	//	Transport: newTransportSupportTimeout(connTimeout, reqTimeout),
+	//	Timeout:   DefaultConnTimeout + DefaultReqTimeout,
+	//}
+	timeout := DefaultReqTimeout
 	if len(args) == 1 {
-		connTimeout = args[0].(time.Duration)
-	}
-	if len(args) == 2 {
-		connTimeout = args[0].(time.Duration)
-		reqTimeout = args[1].(time.Duration)
+		timeout = args[0].(time.Duration)
 	}
 	return &http.Client{
-		Transport: newTransportSupportTimeout(connTimeout, reqTimeout),
-		Timeout:   DefaultConnTimeout + DefaultReqTimeout,
+		Transport: http.DefaultTransport,
+		Timeout:   timeout,
 	}
 }
