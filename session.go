@@ -354,7 +354,7 @@ func (s *Session) send(r *Request) (response *Response, err error) {
 	resp, err := client.Do(req)
 	if err != nil {
 		s.log(err)
-		fmt.Printf("[Neo4J-HTTP] | %s | %s | %d | %s \n", r.Url, r.Method, resp.StatusCode, err.Error())
+		fmt.Printf("[Neo4J-HTTP] | %s | %s | %s \n", r.Url, r.Method, err.Error())
 		return
 	}
 	defer resp.Body.Close()
