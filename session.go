@@ -348,8 +348,8 @@ func (s *Session) send(r *Request) (response *Response, err error) {
 	if s.Client != nil {
 		client = s.Client
 	} else {
-		client = NewClientSupportTimeout()
-		//client = &http.Client{}
+		//client = NewClientSupportTimeout()
+		client = &http.Client{}
 	}
 	resp, err := client.Do(req)
 	if err != nil {
