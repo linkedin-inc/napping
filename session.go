@@ -237,7 +237,7 @@ func (s *Session) Send(r *Request) (response *Response, err error) {
 }
 
 // Send constructs and sends an HTTP request.
-func (s *Session) send(r *Request) (response *Response, err error) {
+func (s *Session) SendPB(r *Request) (response *Response, err error) {
 	startTime := time.Now()
 	r.Method = strings.ToUpper(r.Method)
 	u, err := url.Parse(r.Url)
@@ -416,7 +416,7 @@ func (s *Session) GetPB(url string, p *Params, result, errMsg interface{}) (*Res
 		Result: result,
 		Error:  errMsg,
 	}
-	return s.send(&r)
+	return s.SendPB(&r)
 }
 
 // Options sends an OPTIONS request.
@@ -462,7 +462,7 @@ func (s *Session) PostPB(url string, payload, result, errMsg interface{}) (*Resp
 		Result:  result,
 		Error:   errMsg,
 	}
-	return s.send(&r)
+	return s.SendPB(&r)
 }
 
 // Put sends a PUT request.
