@@ -230,9 +230,11 @@ func (s *Session) Send(r *Request) (response *Response, err error) {
 		s.log("Empty response body")
 	}
 
-	elapsed := time.Since(startTime)
+	elapsed := float64(time.Since(startTime).Nanoseconds()) / 1000000.0
+	if elapsed > 100 {
 
-	fmt.Printf("[Neo4J-HTTP] | %d | %s | %s | %d | %.2fms | \n", time.Now().UnixNano()/1e6, r.Url, r.Method, resp.StatusCode, float64(elapsed.Nanoseconds())/1000000.0)
+		fmt.Printf("[Neo4J-HTTP] | %d | %s | %s | %d | %.2fms | \n", time.Now().UnixNano()/1e6, r.Url, r.Method, resp.StatusCode, elapsed)
+	}
 	return
 }
 
@@ -390,8 +392,10 @@ func (s *Session) SendPB(r *Request) (response *Response, err error) {
 	} else {
 		s.log("Empty response body")
 	}
-	elapsed := time.Since(startTime)
-	fmt.Printf("[Neo4J-HTTP] | %d | %s | %s | %d | %.2fms | \n", time.Now().UnixNano()/1e6, r.Url, r.Method, resp.StatusCode, float64(elapsed.Nanoseconds())/1000000.0)
+	elapsed := float64(time.Since(startTime).Nanoseconds()) / 1000000.0
+	if elapsed > 100 {
+		fmt.Printf("[Neo4J-HTTP] | %d | %s | %s | %d | %.2fms | \n", time.Now().UnixNano()/1e6, r.Url, r.Method, resp.StatusCode, elapsed)
+	}
 	return
 }
 
